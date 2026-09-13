@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="學生六次段考學習表現分析工具：本機解析 Excel、多人查詢、趨勢圖、雷達圖與 PDF 報表。" />
+  <title>學生六次段考學習表現分析工具</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">STUDENT PERFORMANCE ANALYZER</p>
+        <h1>學生六次段考學習表現分析工具</h1>
+        <p class="hero-copy">匯入成績 Excel，輸入班級座號，即可整理六次段考單科校排、總校排、趨勢與五科能力雷達圖。</p>
+      </div>
+      <div class="privacy-card" aria-label="隱私說明">
+        <span class="privacy-icon">✓</span>
+        <div>
+          <strong>資料只在本機瀏覽器處理</strong>
+          <small>不會把學生姓名、成績或 Excel 上傳到伺服器。</small>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="step-card" id="upload-section">
+        <div class="step-heading">
+          <span class="step-number">1</span>
+          <div>
+            <h2>匯入成績檔</h2>
+            <p>支援 .xlsx；正式段考分頁命名例如：114-7A-01、114-7B-03。</p>
+          </div>
+        </div>
+
+        <label class="drop-zone" id="drop-zone" for="file-input">
+          <input id="file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+          <span class="drop-icon">⇧</span>
+          <strong>拖曳 Excel 到這裡，或點一下選擇檔案</strong>
+          <small>原始檔只會被讀取，不會被修改。</small>
+        </label>
+
+        <div id="file-status" class="status-panel hidden" aria-live="polite"></div>
+      </section>
+
+      <section class="step-card disabled-card" id="query-section">
+        <div class="step-heading">
+          <span class="step-number">2</span>
+          <div>
+            <h2>選擇年級與學生</h2>
+            <p>可查單人、多人、座號範圍或整班。</p>
+          </div>
+        </div>
+
+        <div class="query-grid">
+          <div class="field-group">
+            <label for="group-select">資料群組</label>
+            <select id="group-select" disabled></select>
+          </div>
+          <div class="field-group field-grow">
+            <label for="query-input">班級座號</label>
+            <textarea id="query-input" rows="3" disabled placeholder="例如：71501\n多人：71501, 71502, 71505\n整班：715\n範圍：71501-71509"></textarea>
+            <small>可用空白、逗號、頓號或換行分隔。</small>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="primary-btn" id="analyze-btn" disabled>開始分析</button>
+          <button class="ghost-btn" id="clear-btn" disabled>清除查詢</button>
+        </div>
+      </section>
+
+      <section class="results-section hidden" id="results-section">
+        <div class="results-toolbar">
+          <div>
+            <p class="eyebrow">ANALYSIS RESULTS</p>
+            <h2>分析結果</h2>
+            <p id="results-meta"></p>
+          </div>
+          <div class="toolbar-actions">
+            <label class="toggle-row">
+              <input id="pdf-color-toggle" type="checkbox" />
+              <span>PDF 使用彩色</span>
+            </label>
+            <button class="secondary-btn" id="download-pdf-btn">下載合併 PDF</button>
+            <button class="secondary-btn" id="download-zip-btn">個別 PDF ZIP</button>
+            <button class="ghost-btn" id="print-btn">列印／另存 PDF</button>
+          </div>
+        </div>
+
+        <div id="missing-warning" class="warning-panel hidden"></div>
+
+        <div id="batch-summary" class="batch-summary hidden">
+          <div class="summary-card">
+            <span>查詢人數</span><strong id="summary-count">0</strong>
+          </div>
+          <div class="summary-card">
+            <span>整體進步</span><strong id="summary-improved">0</strong>
+          </div>
+          <div class="summary-card">
+            <span>需留意退步</span><strong id="summary-declined">0</strong>
+          </div>
+          <div class="summary-card">
+            <span>偏科明顯</span><strong id="summary-gap">0</strong>
+          </div>
+        </div>
+
+        <div id="overview-wrap" class="overview-wrap hidden">
+          <div class="section-title-row">
+            <div>
+              <h3>多人總覽</h3>
+              <p>點選學生可查看完整六次段考報告。</p>
+            </div>
+            <div class="overview-tools">
+              <input id="overview-filter" type="search" placeholder="搜尋座號或姓名" />
+              <select id="overview-sort">
+                <option value="id">依座號</option>
+                <option value="latest">依最近校排</option>
+                <option value="trend">依趨勢</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="overview-table">
+              <thead>
+                <tr>
+                  <th>座號</th>
+                  <th>姓名</th>
+                  <th>最近校排</th>
+                  <th>最佳校排</th>
+                  <th>整體趨勢</th>
+                  <th>優勢科</th>
+                  <th>相對弱科</th>
+                  <th>科目差距</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="overview-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="detail-selector hidden" id="detail-selector-wrap">
+          <label for="detail-selector">查看個別學生</label>
+          <select id="detail-selector"></select>
+        </div>
+
+        <div id="student-detail"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>板橋國中 高勳頊老師製作</span>
+      <span>Web 版｜本機端分析</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="print-root" class="print-root" aria-hidden="true"></div>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
