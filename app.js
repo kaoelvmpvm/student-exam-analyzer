@@ -1005,9 +1005,9 @@
       if (!report || !page.clientHeight) continue;
       page.style.setProperty('--print-scale', '1');
       page.style.setProperty('--print-width-factor', '1');
-      const available = page.clientHeight - 8;
+      const available = page.clientHeight;
       const actual = report.getBoundingClientRect().height;
-      if (actual > available) {
+      if (actual > available + 2) {
         const scale = Math.max(0.62, Math.min(1, available / actual - 0.015));
         page.style.setProperty('--print-scale', String(scale));
         page.style.setProperty('--print-width-factor', String(1 / scale));
