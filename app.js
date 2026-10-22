@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const APP_VERSION = '2.0.0-web';
+  const APP_VERSION = '3.0.0-web';
   const WATERMARK = '板橋國中 高勳頊老師製作';
   const SHEET_RE = /^(\d{3})-([789])([AB])-0([123])$/;
   const REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -80,6 +80,11 @@
   el('download-pdf-btn').addEventListener('click', () => exportCombinedPDF());
   el('download-zip-btn').addEventListener('click', () => exportIndividualZIP());
   el('print-btn').addEventListener('click', printReports);
+  // Ctrl+P 也會觸發 beforeprint；每次使用目前查詢結果建立列印資料。
+  window.addEventListener('beforeprint', () => {
+    preparePrintRoot();
+    fitPrintPages();
+  });
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-open-student]');
@@ -138,7 +143,7 @@
     fileStatus.classList.remove('hidden');
     fileStatus.innerHTML = `
       <div class="status-title">✓ 已讀取：${escapeHTML(wb.fileName)}</div>
-      <div class="status-meta">偵測到 ${wb.groups.length} 個年級資料群組、共 ${allExamCount} 個正式段考分頁。公式映射會優先於 R 欄顯示標題。</div>
+      <div class="status-meta">偵測到 ${wb.groups.length} 個年級資料群組、共 ${allExamCount} 次段考（支援七、八、九年級）。單科排名優先核對 RANK 公式引用欄位。</div>
       ${warnings.length ? `<div class="status-warning">注意：${warnings.map(escapeHTML).join('；')}</div>` : ''}
     `;
   }
@@ -385,7 +390,7 @@
       g.studentIds = Array.from(ids).sort((a, b) => Number(a) - Number(b));
       g.classes = Array.from(classes).sort();
       g.subjects = subjects;
-      if (g.exams.length !== 6) warnings.push(`${g.label} 偵測到 ${g.exams.length} 次正式段考（完整學年一般為 6 次）。`);
+      if (g.exams.length > 6) warnings.push(`${g.label} 含 ${g.exams.length} 次段考，超過單一學年一般的六次，請確認分頁命名是否重複。`);
     });
 
     return { fileName: file.name, groups, warnings, version: APP_VERSION };
@@ -804,12 +809,12 @@
     if (valid.length >= 2) {
       const first = valid[0], last = valid[valid.length - 1];
       out.push(`整體校排由第 ${first.totalRank} 名（約${topPct(first.totalRank, first.totalMax)}）到第 ${last.totalRank} 名（約${topPct(last.totalRank, last.totalMax)}），趨勢判定為「${a.overallTrend}」。`);
-    } else out.push('整體校排資料不足，無法完整判讀六次趨勢。');
+    } else out.push('總校排資料不足兩次，暫無法判定進退步趨勢。');
 
     const best = a.subjects.find(s => s.key === a.strongest);
     const worst = a.subjects.find(s => s.key === a.weakest);
-    if (best) out.push(`相對優勢科目為${best.label}：六次平均相對能力指數 ${best.avgIndex.toFixed(0)}${best.latestOK ? `，最近一次單科校排第 ${best.latestRank} 名` : ''}。`);
-    if (worst) out.push(`相對較弱科目為${worst.label}：六次平均相對能力指數 ${worst.avgIndex.toFixed(0)}${worst.latestOK ? `，最近一次單科校排第 ${worst.latestRank} 名` : ''}；建議搭配原始分數與題型再判斷原因。`);
+    if (best) out.push(`相對優勢科目為${best.label}：歷次平均相對能力指數 ${best.avgIndex.toFixed(0)}${best.latestOK ? `，最近一次單科校排第 ${best.latestRank} 名` : ''}。`);
+    if (worst) out.push(`相對較弱科目為${worst.label}：歷次平均相對能力指數 ${worst.avgIndex.toFixed(0)}${worst.latestOK ? `，最近一次單科校排第 ${worst.latestRank} 名` : ''}；建議搭配原始分數與題型再判斷原因。`);
     if (a.subjectGap < 8) out.push('五科相對表現差距小，整體較為均衡。');
     else if (a.subjectGap >= 20) out.push('科目間差距較明顯，後續複習可優先處理相對弱科，同時維持優勢科。');
     return out;
@@ -819,6 +824,7 @@
 
   function reportHTML(a, { forPrint = false } = {}) {
     const subjectHeaders = a.subjects.map(s => s.key);
+    const examLabel = `${a.exams.length} 次段考`;
     const rankRows = a.exams.map(e => `
       <tr>
         <td>${escapeHTML(e.shortLabel)}</td>
@@ -847,7 +853,7 @@
         <div class="report-header">
           <div>
             <p class="eyebrow">INDIVIDUAL PERFORMANCE REPORT</p>
-            <h3>${escapeHTML(a.name || '學生')}｜六次段考學習表現</h3>
+            <h3>${escapeHTML(a.name || '學生')}｜段考學習表現（${escapeHTML(examLabel)}）</h3>
             <p>${escapeHTML(a.groupLabel)}</p>
           </div>
           <div class="student-id-tag">${escapeHTML(a.id)}</div>
@@ -855,7 +861,7 @@
         <div class="report-body">
           <div class="kpi-grid">
             <div class="kpi"><span>最近一次總校排</span><strong>${a.latestTotalOK ? `第 ${a.latestTotalRank} 名` : '資料不足'}</strong></div>
-            <div class="kpi"><span>六次最佳總校排</span><strong>${a.bestTotalOK ? `第 ${a.bestTotalRank} 名` : '資料不足'}</strong></div>
+            <div class="kpi"><span>歷次最佳總校排</span><strong>${a.bestTotalOK ? `第 ${a.bestTotalRank} 名` : '資料不足'}</strong></div>
             <div class="kpi"><span>整體趨勢</span><strong class="${trendClass(a.overallTrend)}">${escapeHTML(a.overallTrend)}</strong></div>
             <div class="kpi good"><span>優勢 / 相對弱勢</span><strong><span class="subject-name good">${escapeHTML(a.strongest || '—')}</span> / <span class="subject-name bad">${escapeHTML(a.weakest || '—')}</span></strong></div>
           </div>
@@ -870,13 +876,13 @@
             </div>
             <div class="chart-card">
               <h4>五科相對能力雷達圖</h4>
-              <p>以單科校排換算為 0–100 相對能力指數後取六次平均。</p>
+              <p>以單科校排換算為 0–100 相對能力指數後取已匯入段考平均。</p>
               ${radarSVG(a)}
             </div>
           </div>
 
           <section class="report-section">
-            <h4>六次段考排名紀錄</h4>
+            <h4>${escapeHTML(examLabel)}排名紀錄</h4>
             <div class="report-table-wrap">
               <table class="report-table">
                 <thead><tr><th>段考</th>${subjectHeaders.map(k => `<th>${escapeHTML(shortSubject(k))}R</th>`).join('')}<th>總校排</th><th>班排</th><th>平均</th></tr></thead>
@@ -889,14 +895,14 @@
             <h4>科目能力與趨勢</h4>
             <div class="report-table-wrap">
               <table class="report-table">
-                <thead><tr><th>科目</th><th>六次平均能力</th><th>六次平均校排</th><th>最近單科校排</th><th>趨勢</th><th>穩定度</th></tr></thead>
+                <thead><tr><th>科目</th><th>歷次平均能力</th><th>歷次平均校排</th><th>最近單科校排</th><th>趨勢</th><th>穩定度</th></tr></thead>
                 <tbody>${subjectRows}</tbody>
               </table>
             </div>
           </section>
 
           ${a.warnings.length ? `<div class="report-note">資料提醒：${a.warnings.map(escapeHTML).join('；')}</div>` : ''}
-          <div class="report-note">判讀原則：雷達圖反映「相對排名位置」，不是原始分數。優勢科以六次平均相對能力最高者標示，弱勢科以最低者標示；若科目差距很小，應視為整體均衡而非能力優劣的絕對判定。</div>
+          <div class="report-note">判讀原則：雷達圖反映「相對排名位置」，不是原始分數。優勢科以歷次平均相對能力最高者標示，弱勢科以最低者標示；若科目差距很小，應視為整體均衡而非能力優劣的絕對判定。</div>
           <div class="report-watermark">${WATERMARK}</div>
         </div>
       </article>
@@ -982,9 +988,43 @@
 
   // -------------------- Print --------------------
 
+  function preparePrintRoot() {
+    if (!state.analyses.length) {
+      printRoot.innerHTML = '<p class="print-empty">尚未選擇學生，請先匯入 Excel 並執行分析。</p>';
+      return;
+    }
+    printRoot.innerHTML = state.analyses.map(a =>
+      `<section class="print-page" style="--print-scale:1;--print-width-factor:1">${reportHTML(a, { forPrint: true })}</section>`
+    ).join('');
+  }
+
+  // 在瀏覽器套用列印媒體樣式後計算；頁面內容若過高，會等比例縮到單一 A4 可列印區。
+  function fitPrintPages() {
+    for (const page of printRoot.querySelectorAll('.print-page')) {
+      const report = page.querySelector('.student-report');
+      if (!report || !page.clientHeight) continue;
+      page.style.setProperty('--print-scale', '1');
+      page.style.setProperty('--print-width-factor', '1');
+      const available = page.clientHeight - 8;
+      const actual = report.getBoundingClientRect().height;
+      if (actual > available) {
+        const scale = Math.max(0.62, Math.min(1, available / actual - 0.015));
+        page.style.setProperty('--print-scale', String(scale));
+        page.style.setProperty('--print-width-factor', String(1 / scale));
+        // 寬度增加後，文字換行可能減少；再次測量高度防止極端內容溢出。
+        const scaledHeight = report.getBoundingClientRect().height;
+        if (scaledHeight > available) {
+          const adjusted = scale * available / scaledHeight * 0.99;
+          page.style.setProperty('--print-scale', String(adjusted));
+          page.style.setProperty('--print-width-factor', String(1 / adjusted));
+        }
+      }
+    }
+  }
+
   function printReports() {
     if (!state.analyses.length) return showToast('目前沒有可列印的分析結果。');
-    printRoot.innerHTML = state.analyses.map(a => `<section class="print-page">${reportHTML(a, { forPrint: true })}</section>`).join('');
+    preparePrintRoot();
     requestAnimationFrame(() => setTimeout(() => window.print(), 80));
   }
 
@@ -996,7 +1036,7 @@
     try {
       setBusy(true, `正在產生 ${state.analyses.length} 頁 PDF…`);
       const blob = await createPDFBlob(state.analyses, useColor, (i, n) => showToast(`正在產生 PDF：${i}/${n}`, 60000));
-      downloadBlob(blob, `學生六次段考分析_${dateStamp()}.pdf`);
+      downloadBlob(blob, `學生段考分析_${dateStamp()}.pdf`);
       showToast('PDF 已產生。');
     } catch (err) {
       console.error(err);
@@ -1061,7 +1101,7 @@
     // Header
     c.fillStyle = C.muted; c.font = font(17, 700); c.fillText('INDIVIDUAL PERFORMANCE REPORT', margin, y);
     y += 44;
-    c.fillStyle = C.ink; c.font = font(34, 800); c.fillText(`${a.name || '學生'}｜六次段考學習表現`, margin, y);
+    c.fillStyle = C.ink; c.font = font(34, 800); c.fillText(`${a.name || '學生'}｜${a.exams.length}次段考學習表現`, margin, y);
     c.font = font(20, 400); c.fillStyle = C.muted; c.fillText(a.groupLabel, margin, y + 31);
     roundRect(c, W - margin - 150, 66, 150, 50, 12); c.fillStyle = C.primary; c.fill();
     c.fillStyle = '#fff'; c.font = font(22, 800); c.textAlign = 'center'; c.fillText(a.id, W - margin - 75, 99); c.textAlign = 'left';
@@ -1072,7 +1112,7 @@
     // KPI row
     const kpis = [
       ['最近一次總校排', a.latestTotalOK ? `第 ${a.latestTotalRank} 名` : '資料不足', ''],
-      ['六次最佳總校排', a.bestTotalOK ? `第 ${a.bestTotalRank} 名` : '資料不足', ''],
+      ['歷次最佳總校排', a.bestTotalOK ? `第 ${a.bestTotalRank} 名` : '資料不足', ''],
       ['整體趨勢', a.overallTrend, a.overallTrend.includes('進步') ? 'good' : a.overallTrend.includes('退步') ? 'bad' : ''],
       ['優勢 / 相對弱勢', `${a.strongest || '—'} / ${a.weakest || '—'}`, 'good']
     ];
@@ -1088,37 +1128,37 @@
     y += boxH + 18;
 
     // Summary
-    c.font = font(16, 400);
+    c.font = font(18, 400);
     const summaryLines = [];
-    a.summary.slice(0, 4).forEach(line => {
+    a.summary.slice(0, 3).forEach(line => {
       wrapText(c, `• ${line}`, W - 2 * margin - 36).slice(0, 2).forEach(t => summaryLines.push(t));
     });
-    const summaryH = Math.max(110, 34 + summaryLines.length * 22);
+    const summaryH = Math.max(110, 34 + summaryLines.length * 23);
     roundRect(c, margin, y, W - 2 * margin, summaryH, 12); c.fillStyle = C.soft; c.fill();
-    c.fillStyle = C.ink; c.font = font(16, 400);
+    c.fillStyle = C.ink; c.font = font(18, 400);
     let sy = y + 29;
-    summaryLines.forEach(t => { c.fillText(t, margin + 18, sy); sy += 22; });
+    summaryLines.forEach(t => { c.fillText(t, margin + 18, sy); sy += 23; });
     y += summaryH + 20;
 
     // Charts titles
-    const chartGap = 20, chartW = (W - 2 * margin - chartGap) / 2, chartH = 340;
+    const chartGap = 20, chartW = (W - 2 * margin - chartGap) / 2, chartH = 326;
     drawPanel(c, margin, y, chartW, chartH, C);
     drawPanel(c, margin + chartW + chartGap, y, chartW, chartH, C);
     c.fillStyle = C.ink; c.font = font(19, 800); c.fillText('總校排趨勢', margin + 18, y + 31);
     c.fillText('五科相對能力雷達圖', margin + chartW + chartGap + 18, y + 31);
     c.fillStyle = C.muted; c.font = font(13, 400);
     c.fillText('往上代表相對排名改善', margin + 18, y + 53);
-    c.fillText('六次單科校排換算 0–100 後平均', margin + chartW + chartGap + 18, y + 53);
+    c.fillText('歷次單科校排換算 0–100 後平均', margin + chartW + chartGap + 18, y + 53);
     drawTrendCanvas(c, a, margin + 18, y + 67, chartW - 36, chartH - 83, C, font);
     drawRadarCanvas(c, a, margin + chartW + chartGap + 18, y + 67, chartW - 36, chartH - 83, C, font, useColor);
     y += chartH + 24;
 
     // Rankings table
-    c.fillStyle = C.ink; c.font = font(20, 800); c.fillText('六次段考排名紀錄', margin, y + 20); y += 34;
+    c.fillStyle = C.ink; c.font = font(20, 800); c.fillText(`${a.exams.length}次段考排名紀錄`, margin, y + 20); y += 34;
     const subj = a.subjects.map(s => s.key);
     const rankCols = ['段考', ...subj.map(shortSubject), '總校排', '班排', '平均'];
     const rankData = a.exams.map(e => [e.shortLabel, ...subj.map(k => e.ranks[k] ?? '—'), e.totalRank ?? '—', e.classRank ?? '—', e.average != null ? Number(e.average).toFixed(1) : '—']);
-    y = drawCanvasTable(c, rankCols, rankData, margin, y, W - 2 * margin, 46, C, font, { headerFont: 15, cellFont: 15 });
+    y = drawCanvasTable(c, rankCols, rankData, margin, y, W - 2 * margin, 48, C, font, { headerFont: 18, cellFont: 18 });
     y += 22;
 
     // Subject table
@@ -1127,18 +1167,18 @@
       `${s.key === a.strongest ? '▲ ' : s.key === a.weakest ? '▼ ' : ''}${s.label}`,
       s.avgIndex.toFixed(0), s.avgRank.toFixed(1), s.latestOK ? s.latestRank : '—', s.trend, s.volatility
     ]);
-    y = drawCanvasTable(c, ['科目', '平均能力', '平均校排', '最近校排', '趨勢', '穩定度'], subjectData, margin, y, W - 2 * margin, 43, C, font, {
-      headerFont: 14, cellFont: 14,
+    y = drawCanvasTable(c, ['科目', '平均能力', '平均校排', '最近校排', '趨勢', '穩定度'], subjectData, margin, y, W - 2 * margin, 46, C, font, {
+      headerFont: 17, cellFont: 17,
       cellColor: (row, col, val) => col === 0 && String(val).startsWith('▲') ? C.good : col === 0 && String(val).startsWith('▼') ? C.bad : C.ink
     });
 
     // Notes + watermark
-    const noteY = Math.min(H - 150, y + 22);
-    c.fillStyle = C.muted; c.font = font(13, 400);
-    const note = '判讀原則：雷達圖呈現相對排名位置，不等同原始分數；優弱科為六次平均相對位置的比較，應配合原始分數、題型與學習歷程解讀。';
-    wrapText(c, note, W - 2 * margin).slice(0, 2).forEach((line, i) => c.fillText(line, margin, noteY + i * 20));
+    const noteY = Math.min(H - 140, y + 18);
+    c.fillStyle = C.muted; c.font = font(16, 400);
+    const note = '判讀原則：雷達圖呈現相對排名位置，不等同原始分數；優弱科為歷次平均相對位置的比較，應配合原始分數、題型與學習歷程解讀。';
+    wrapText(c, note, W - 2 * margin).slice(0, 2).forEach((line, i) => c.fillText(line, margin, noteY + i * 23));
     c.strokeStyle = C.line; c.beginPath(); c.moveTo(margin, H - 82); c.lineTo(W - margin, H - 82); c.stroke();
-    c.fillStyle = C.muted; c.font = font(14, 500); c.textAlign = 'center'; c.fillText(WATERMARK, W / 2, H - 45); c.textAlign = 'left';
+    c.fillStyle = C.muted; c.font = font(17, 500); c.textAlign = 'center'; c.fillText(WATERMARK, W / 2, H - 45); c.textAlign = 'left';
     return canvas;
   }
 
