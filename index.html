@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="學生六次段考學習表現分析工具：本機解析 Excel、多人查詢、趨勢圖、雷達圖與 PDF 報表。" />
-  <title>學生六次段考學習表現分析工具</title>
+  <meta name="description" content="七至九年級學生段考學習表現分析工具：本機解析 Excel，單人及整班查詢，A4 單頁列印與 PDF 報表。" />
+  <title>學生段考學習表現分析工具｜七～九年級</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="hero">
       <div>
         <p class="eyebrow">STUDENT PERFORMANCE ANALYZER</p>
-        <h1>學生六次段考學習表現分析工具</h1>
-        <p class="hero-copy">匯入成績 Excel，輸入班級座號，即可整理六次段考單科校排、總校排、趨勢與五科能力雷達圖。</p>
+        <h1>學生段考學習表現分析工具</h1>
+        <p class="hero-copy">適用七、八、九年級；匯入含歷年段考分頁的 Excel，輸入班級座號即可檢視單科排名、學習趨勢與五科雷達圖。每位學生以 A4 一頁印製。</p>
       </div>
       <div class="privacy-card" aria-label="隱私說明">
         <span class="privacy-icon">✓</span>
@@ -30,7 +30,7 @@
           <span class="step-number">1</span>
           <div>
             <h2>匯入成績檔</h2>
-            <p>支援 .xlsx；正式段考分頁命名例如：114-7A-01、114-7B-03。</p>
+            <p>支援 .xlsx；段考分頁命名例如：114-7B-03、115-8A-01、116-9A-01。Word 成績請先用「Word 轉 Excel 分頁產生器」加入原活頁簿。</p>
           </div>
         </div>
 
@@ -38,7 +38,7 @@
           <input id="file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
           <span class="drop-icon">⇧</span>
           <strong>拖曳 Excel 到這裡，或點一下選擇檔案</strong>
-          <small>原始檔只會被讀取，不會被修改。</small>
+          <small>可讀取七～九年級資料；原始 Excel 不會被修改。</small>
         </label>
 
         <div id="file-status" class="status-panel hidden" aria-live="polite"></div>
@@ -60,7 +60,7 @@
           </div>
           <div class="field-group field-grow">
             <label for="query-input">班級座號</label>
-            <textarea id="query-input" rows="3" disabled placeholder="例如：71501\n多人：71501, 71502, 71505\n整班：715\n範圍：71501-71509"></textarea>
+            <textarea id="query-input" rows="3" disabled placeholder="例如：81501\n多人：81501, 81502, 81505\n整班：815\n範圍：81501-81509"></textarea>
             <small>可用空白、逗號、頓號或換行分隔。</small>
           </div>
         </div>
@@ -85,7 +85,7 @@
             </label>
             <button class="secondary-btn" id="download-pdf-btn">下載合併 PDF</button>
             <button class="secondary-btn" id="download-zip-btn">個別 PDF ZIP</button>
-            <button class="ghost-btn" id="print-btn">列印／另存 PDF</button>
+            <button class="ghost-btn" id="print-btn">A4 單頁列印／另存 PDF</button>
           </div>
         </div>
 
@@ -110,7 +110,7 @@
           <div class="section-title-row">
             <div>
               <h3>多人總覽</h3>
-              <p>點選學生可查看完整六次段考報告。</p>
+              <p>點選學生可查看目前匯入之該年級全部段考報告。</p>
             </div>
             <div class="overview-tools">
               <input id="overview-filter" type="search" placeholder="搜尋座號或姓名" />
@@ -152,7 +152,7 @@
 
     <footer class="site-footer">
       <span>板橋國中 高勳頊老師製作</span>
-      <span>Web 版｜本機端分析</span>
+      <span>Web v3.0｜七～九年級｜A4 一人一頁</span>
     </footer>
   </div>
 
