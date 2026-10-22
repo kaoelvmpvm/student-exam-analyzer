@@ -1006,13 +1006,13 @@
       page.style.setProperty('--print-scale', '1');
       page.style.setProperty('--print-width-factor', '1');
       const available = page.clientHeight;
-      const actual = report.getBoundingClientRect().height;
+      const actual = Math.max(report.getBoundingClientRect().height, report.scrollHeight);
       if (actual > available + 2) {
-        const scale = Math.max(0.62, Math.min(1, available / actual - 0.015));
+        const scale = Math.max(0.08, Math.min(1, available / actual * 0.985));
         page.style.setProperty('--print-scale', String(scale));
         page.style.setProperty('--print-width-factor', String(1 / scale));
         // 寬度增加後，文字換行可能減少；再次測量高度防止極端內容溢出。
-        const scaledHeight = report.getBoundingClientRect().height;
+        const scaledHeight = Math.max(report.getBoundingClientRect().height, report.scrollHeight * scale);
         if (scaledHeight > available) {
           const adjusted = scale * available / scaledHeight * 0.99;
           page.style.setProperty('--print-scale', String(adjusted));
